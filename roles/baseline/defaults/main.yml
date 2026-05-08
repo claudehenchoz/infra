@@ -22,3 +22,10 @@ managed_user_authorized_keys:
 # Per-host extras. `local.yml` reads /etc/hostname; matching hosts get these.
 # See host_vars/ for how this gets overridden.
 host_extra_packages: []
+
+# Apply all available package updates on every ansible-pull tick.
+# True everywhere by default — set to false in host_vars/<fqdn>.yml only for
+# hosts where you need to pin versions (DBs mid-migration, etc.).
+# Note: this does NOT reboot. Kernel/glibc updates land on disk but only take
+# effect at the next reboot, which you trigger manually.
+baseline_auto_upgrade: true
