@@ -5,6 +5,7 @@ baseline_packages:
   - sudo
   - tmux
   - mc
+  - micro
 
 # The user we provision on every box.
 managed_user: claude
