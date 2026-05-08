@@ -1,0 +1,23 @@
+---
+# This is the entry point that ansible-pull executes on every host.
+# `connection: local` means tasks run against the box itself, not over SSH.
+- name: Baseline configuration for all VPSes
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    # Pull mode targets `localhost`, so Ansible does NOT auto-load host_vars
+    # by the box's real hostname. We do it manually: if a file matching this
+    # box's FQDN exists in host_vars/, merge it into the play's vars.
+    - name: Load per-host overrides if they exist
+      include_vars: "{{ item }}"
+      with_first_found:
+        - files:
+            - "host_vars/{{ ansible_facts['fqdn'] }}.yml"
+            - "host_vars/{{ ansible_facts['hostname'] }}.yml"
+          skip: true
+
+  roles:
+    - baseline

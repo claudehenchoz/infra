@@ -1,0 +1,117 @@
+---
+# ──────────────────────────────────────────────────────────────────
+#  Package installation
+# ──────────────────────────────────────────────────────────────────
+# `package:` is the cross-distro abstraction. It dispatches to apt
+# (Debian/Ubuntu), dnf (Fedora/Alma/Rocky), apk (Alpine), pacman
+# (Arch), zypper (openSUSE), etc. — same task, every distro.
+
+- name: Refresh package cache (Debian/Ubuntu)
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts['pkg_mgr'] == "apt"
+
+- name: Install baseline packages
+  package:
+    name: "{{ baseline_packages }}"
+    state: present
+
+- name: Install per-host extra packages
+  package:
+    name: "{{ host_extra_packages }}"
+    state: present
+  when: host_extra_packages | length > 0
+
+# ──────────────────────────────────────────────────────────────────
+#  User: claude
+# ──────────────────────────────────────────────────────────────────
+
+- name: Ensure managed user exists
+  user:
+    name: "{{ managed_user }}"
+    state: present
+    shell: /bin/bash
+    create_home: true
+
+- name: Install authorized_keys for managed user
+  # `exclusive: true` means: this list is the source of truth.
+  # Any key on disk that isn't in our list gets removed on the next
+  # tick. That's how revocation works — delete from defaults/main.yml,
+  # commit, push.
+  ansible.posix.authorized_key:
+    user: "{{ managed_user }}"
+    key: "{{ item }}"
+    state: present
+    exclusive: "{{ ansible_loop.last }}"
+  loop: "{{ managed_user_authorized_keys }}"
+  loop_control:
+    extended: true
+
+# ──────────────────────────────────────────────────────────────────
+#  Passwordless sudo
+# ──────────────────────────────────────────────────────────────────
+# Drop a file in /etc/sudoers.d/ rather than editing /etc/sudoers.
+# `validate` makes Ansible run `visudo -cf` against the file BEFORE
+# moving it into place — a syntax error can't lock us out.
+
+- name: Grant passwordless sudo to managed user
+  copy:
+    dest: "/etc/sudoers.d/10-{{ managed_user }}"
+    content: "{{ managed_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# ──────────────────────────────────────────────────────────────────
+#  SSH hardening: keys only, no passwords
+# ──────────────────────────────────────────────────────────────────
+# We DON'T edit /etc/ssh/sshd_config in place — that file varies
+# between distros. We drop a high-priority override into the
+# sshd_config.d include directory, which every modern distro
+# (Debian 12+, Ubuntu 22.04+, RHEL 9+, Alma/Rocky 9+, Alpine
+# 3.18+, Arch) supports. OpenSSH reads files in lexicographic
+# order; "99-" wins.
+
+- name: Ensure sshd_config.d exists
+  file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Drop SSH hardening override
+  copy:
+    dest: /etc/ssh/sshd_config.d/99-baseline.conf
+    content: |
+      # Managed by ansible-pull — do not edit by hand.
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      PubkeyAuthentication yes
+      PermitRootLogin prohibit-password
+      UsePAM yes
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "sshd -t -f %s"
+  notify: reload sshd
+
+- name: Check if main sshd_config exists
+  stat:
+    path: /etc/ssh/sshd_config
+  register: sshd_main_config
+
+- name: Make sure sshd Include directive is present (older distros)
+  # Some older sshd_configs don't include sshd_config.d/*.conf. Make
+  # sure it does. Skipped on the rare distro that ships without
+  # /etc/ssh/sshd_config (e.g. minimal Alpine without openssh-server).
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "Include /etc/ssh/sshd_config.d/*.conf"
+    state: present
+    validate: "sshd -t -f %s"
+  when: sshd_main_config.stat.exists
+  notify: reload sshd

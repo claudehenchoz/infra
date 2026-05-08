@@ -1,0 +1,24 @@
+---
+# Packages installed on every host, regardless of distro.
+# Ansible's `package` module maps these to apt/dnf/apk/pacman.
+baseline_packages:
+  - sudo
+  - tmux
+  - mc
+
+# The user we provision on every box.
+managed_user: claude
+
+# PUBLIC keys for `claude`. These are safe to commit to a public repo —
+# a public key by definition is not a secret. Anyone can read it; only
+# the holder of the matching PRIVATE key can use it to log in.
+#
+# Add or rotate keys by editing this list and committing. On the next
+# ansible-pull tick (≤15 min) every box converges automatically. To
+# revoke a key, just delete the line.
+managed_user_authorized_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBJtuv80sMFhmf9pumtP4yr0dLDzUmMkiqzUIxURTW/S claude@home"
+
+# Per-host extras. `local.yml` reads /etc/hostname; matching hosts get these.
+# See host_vars/ for how this gets overridden.
+host_extra_packages: []

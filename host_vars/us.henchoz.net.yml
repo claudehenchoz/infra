@@ -1,0 +1,5 @@
+---
+# Loaded automatically when ansible_hostname or inventory_hostname matches.
+# In pull mode we look this up explicitly in local.yml via the FQDN.
+host_extra_packages:
+  - neofetch
