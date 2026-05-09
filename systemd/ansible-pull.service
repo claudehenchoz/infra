@@ -8,11 +8,10 @@ ConditionACPower=true
 [Service]
 Type=oneshot
 EnvironmentFile=-/etc/default/ansible-pull
-# Refresh collections from the pinned requirements file in the repo.
-# We let this fail-soft (`-` prefix) — if GitHub is briefly down, we
-# still try the pull with whatever's already installed.
-ExecStartPre=-/bin/sh -c 'curl -fsSL "${REPO_URL%.git}/raw/${REPO_BRANCH}/requirements.yml" -o /tmp/requirements.yml && ansible-galaxy collection install -r /tmp/requirements.yml'
+ExecStartPre=-/usr/bin/curl -fsSL ${REPO_URL}/raw/${REPO_BRANCH}/requirements.yml -o /tmp/requirements.yml
+ExecStartPre=-/usr/bin/ansible-galaxy collection install -r /tmp/requirements.yml
 ExecStart=/usr/bin/ansible-pull -U ${REPO_URL} -C ${REPO_BRANCH} -i localhost, local.yml
+
 # Cap log noise on tiny boxes.
 StandardOutput=journal
 StandardError=journal

@@ -3,15 +3,20 @@
 #  bootstrap.sh — run this ONCE on a fresh VPS.
 #
 #  Usage:
-#    curl -fsSL https://raw.githubusercontent.com/claudehenchoz/infra/main/bootstrap/bootstrap.sh | sudo bash
+#    curl -fsSL https://raw.githubusercontent.com/YOU/infra/main/bootstrap/bootstrap.sh | sudo bash
 #
 #  After this script finishes, the box will pull and apply this repo
 #  every 15 minutes via systemd timer. You don't need to log back in.
 # ────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/claudehenchoz/infra.git}"
+REPO_URL="${REPO_URL:-https://github.com/claudehenchoz/infra}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
+
+# Defensive: strip any accidental trailing `.git` so the same URL works
+# for both `git clone` (which accepts either form) and the systemd unit's
+# raw-file curl (which needs the bare form).
+REPO_URL="${REPO_URL%.git}"
 
 # ---- Detect distro & install ansible + git -------------------------
 if   command -v apt-get >/dev/null 2>&1; then
@@ -34,9 +39,7 @@ fi
 # ---- Install required Ansible collections --------------------------
 # We fetch requirements.yml directly so we don't need a local clone yet.
 mkdir -p /tmp/ap-bootstrap
-curl -fsSL "${REPO_URL%.git}/raw/${REPO_BRANCH}/requirements.yml" \
-    -o /tmp/ap-bootstrap/requirements.yml || \
-curl -fsSL "${REPO_URL%.git}/-/raw/${REPO_BRANCH}/requirements.yml" \
+curl -fsSL "${REPO_URL}/raw/${REPO_BRANCH}/requirements.yml" \
     -o /tmp/ap-bootstrap/requirements.yml
 ansible-galaxy collection install -r /tmp/ap-bootstrap/requirements.yml
 
