@@ -31,7 +31,7 @@
   user:
     name: "{{ managed_user }}"
     state: present
-    shell: /bin/bash
+    shell: /usr/bin/fish
     create_home: true
 
 - name: Install authorized_keys for managed user

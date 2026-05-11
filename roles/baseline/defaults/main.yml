@@ -6,6 +6,7 @@ baseline_packages:
   - tmux
   - mc
   - micro
+  - fish
 
 # The user we provision on every box.
 managed_user: claude
