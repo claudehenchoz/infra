@@ -3,3 +3,7 @@
   service:
     name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
     state: reloaded
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true

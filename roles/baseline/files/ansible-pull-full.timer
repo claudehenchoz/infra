@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily ansible-pull (full, drift correction)
+Requires=ansible-pull-full.service
+
+[Timer]
+# Once a day, with up to 2h jitter so a fleet doesn't all hit GitHub
+# at the same minute — same load-spreading philosophy as the 15-min
+# timer's RandomizedDelaySec. Persistent=true catches missed runs if
+# the box was powered off when the calendar fired.
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

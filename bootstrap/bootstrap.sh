@@ -43,24 +43,19 @@ curl -fsSL "${REPO_URL}/raw/${REPO_BRANCH}/requirements.yml" \
     -o /tmp/ap-bootstrap/requirements.yml
 ansible-galaxy collection install -r /tmp/ap-bootstrap/requirements.yml
 
-# ---- First run, synchronously, so we know it works -----------------
-ansible-pull -U "$REPO_URL" -C "$REPO_BRANCH" -i localhost, local.yml
-
-# ---- Install the systemd timer for repeated runs -------------------
-install -m 0644 /tmp/ansible-pull.service /etc/systemd/system/ansible-pull.service 2>/dev/null || \
-    curl -fsSL "https://raw.githubusercontent.com/claudehenchoz/infra/${REPO_BRANCH}/systemd/ansible-pull.service" \
-        -o /etc/systemd/system/ansible-pull.service
-
-curl -fsSL "https://raw.githubusercontent.com/claudehenchoz/infra/${REPO_BRANCH}/systemd/ansible-pull.timer" \
-    -o /etc/systemd/system/ansible-pull.timer
-
-# Pass repo URL/branch to the unit via an env file the unit reads.
+# ---- Env file the systemd units read for ${REPO_URL}/${REPO_BRANCH} -
+# Has to exist BEFORE the first ansible-pull, because the playbook
+# itself drops the systemd units into place and they reference this.
 cat >/etc/default/ansible-pull <<EOF
 REPO_URL=${REPO_URL}
 REPO_BRANCH=${REPO_BRANCH}
 EOF
 
-systemctl daemon-reload
-systemctl enable --now ansible-pull.timer
+# ---- First run, synchronously, so we know it works -----------------
+# The baseline role installs both systemd units (15-min change-detect
+# + daily full) and enables their timers. After this returns, the box
+# is fully self-managing — no further steps here.
+ansible-pull -U "$REPO_URL" -C "$REPO_BRANCH" -i localhost, local.yml
 
-echo "✔ Bootstrap done. Next run: $(systemctl show -p NextElapseUSecRealtime --value ansible-pull.timer)"
+echo "✔ Bootstrap done. Timers installed and enabled by the playbook."
+echo "  Inspect: systemctl list-timers ansible-pull.timer ansible-pull-full.timer"

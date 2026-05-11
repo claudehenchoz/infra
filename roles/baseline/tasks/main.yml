@@ -135,3 +135,42 @@
     validate: "sshd -t -f %s"
   when: sshd_main_config.stat.exists
   notify: reload sshd
+
+# ──────────────────────────────────────────────────────────────────
+#  Systemd: two-tier ansible-pull (change-detect + daily drift)
+# ──────────────────────────────────────────────────────────────────
+# The -o timer fires every 15 min and only runs the playbook if HEAD
+# moved. The daily timer runs the full playbook unconditionally to
+# converge any local drift. Both units are managed from here so future
+# tweaks propagate via the normal pull cycle — no re-bootstrap needed.
+
+- name: Install ansible-pull systemd units
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ansible-pull.service
+    - ansible-pull.timer
+    - ansible-pull-full.service
+    - ansible-pull-full.timer
+  notify: reload systemd
+
+- name: Flush handlers so daemon-reload runs before we enable units
+  # Without this, daemon-reload would run at the end of the play and
+  # the enable/start below could see stale unit content (or, for a
+  # brand-new unit, no unit at all).
+  meta: flush_handlers
+
+- name: Enable and start ansible-pull timers
+  # Only the timers are started — the services themselves are oneshots
+  # triggered by their timer.
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - ansible-pull.timer
+    - ansible-pull-full.timer

@@ -10,6 +10,13 @@ Ansible-pull infrastructure for a VPS fleet. There is no central control node �
 
 `ansible-pull` targets `localhost` with `connection: local`. Because of this, Ansible's normal host_vars auto-loading (which keys on `inventory_hostname`) does not work. `local.yml` manually loads the matching file from `host_vars/` using the box's real `ansible_fqdn` or `ansible_hostname` in a `pre_tasks` block. When adding a new host, create `host_vars/<fqdn>.yml` following the pattern in `host_vars/us.henchoz.net.yml`.
 
+Two systemd timers drive the pull loop (both managed by the baseline role from `roles/baseline/files/`):
+
+- **`ansible-pull.timer`** — fires every 15 min, invokes `ansible-pull -o` (change-detect). If the repo's HEAD didn't move, the run exits in a couple of seconds without applying anything.
+- **`ansible-pull-full.timer`** — fires once a day (with up to 2h jitter), invokes `ansible-pull` without `-o`. This is the drift-correction run that re-converges anything that was changed locally.
+
+A `Conflicts=ansible-pull-full.service` on the frequent service keeps the two from racing.
+
 ## Key variables (roles/baseline/defaults/main.yml)
 
 - `baseline_packages` — installed on every host via cross-distro `package:` module
@@ -33,9 +40,9 @@ The script detects the distro (apt / dnf / apk / pacman / zypper), installs Ansi
 ## Watching live runs on a managed box
 
 ```bash
-systemctl status ansible-pull.timer
-journalctl -u ansible-pull.service -n 50
-systemctl list-timers ansible-pull.timer   # shows next scheduled run
+systemctl list-timers ansible-pull.timer ansible-pull-full.timer
+journalctl -u ansible-pull.service -n 50         # 15-min change-detect runs
+journalctl -u ansible-pull-full.service -n 50    # daily full runs
 ```
 
 ## Testing changes manually on a managed box

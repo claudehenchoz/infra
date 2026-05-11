@@ -1,5 +1,5 @@
 [Unit]
-Description=Apply desired-state configuration via ansible-pull
+Description=Daily ansible-pull (full run, drift correction)
 After=network-online.target
 Wants=network-online.target
 # Don't fight with package managers running in parallel.
@@ -10,13 +10,16 @@ Type=oneshot
 EnvironmentFile=-/etc/default/ansible-pull
 ExecStartPre=-/usr/bin/curl -fsSL ${REPO_URL}/raw/${REPO_BRANCH}/requirements.yml -o /tmp/requirements.yml
 ExecStartPre=-/usr/bin/ansible-galaxy collection install -r /tmp/requirements.yml
+# No -o: runs the full playbook regardless of whether the repo moved,
+# so local drift (hand-edits, packages upgraded out from under us,
+# sshd_config tweaks) gets re-converged within 24h.
 ExecStart=/usr/bin/ansible-pull -U ${REPO_URL} -C ${REPO_BRANCH} -i localhost, local.yml
 
 # Cap log noise on tiny boxes.
 StandardOutput=journal
 StandardError=journal
-# Don't let a hung run block the next tick forever.
-TimeoutStartSec=20m
+# Full run can be slower than the -o variant; give it more headroom.
+TimeoutStartSec=30m
 
 [Install]
 WantedBy=multi-user.target

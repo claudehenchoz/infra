@@ -1,0 +1,28 @@
+[Unit]
+Description=Periodic ansible-pull (change-detect, every 15min)
+After=network-online.target
+Wants=network-online.target
+# Don't fight with package managers running in parallel.
+ConditionACPower=true
+# Never run a quick tick while the daily full run is in flight — the
+# full one wins. If a -o tick is already running when the daily fires,
+# Persistent=true on the daily timer catches it on the next interval.
+Conflicts=ansible-pull-full.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/ansible-pull
+ExecStartPre=-/usr/bin/curl -fsSL ${REPO_URL}/raw/${REPO_BRANCH}/requirements.yml -o /tmp/requirements.yml
+ExecStartPre=-/usr/bin/ansible-galaxy collection install -r /tmp/requirements.yml
+# -o / --only-if-changed: pull the repo, exit cleanly if HEAD didn't move.
+# Drift correction happens via the separate daily ansible-pull-full.timer.
+ExecStart=/usr/bin/ansible-pull -o -U ${REPO_URL} -C ${REPO_BRANCH} -i localhost, local.yml
+
+# Cap log noise on tiny boxes.
+StandardOutput=journal
+StandardError=journal
+# Don't let a hung run block the next tick forever.
+TimeoutStartSec=20m
+
+[Install]
+WantedBy=multi-user.target
