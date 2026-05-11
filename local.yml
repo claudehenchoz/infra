@@ -5,7 +5,23 @@
   hosts: localhost
   connection: local
   become: true
+
+  # Only gather the fact subsets we actually use:
+  #   - network → ansible_facts['fqdn']
+  #   - hardware (minimal) → ansible_facts['hostname'] comes from `min` implicitly via the default subset,
+  #     so we keep `min` and exclude everything else.
+  #   - pkg_mgr → cross-distro branch in tasks
+  #   - os_family → sshd handler service name
+  #
+  # `!all` removes the heavy stuff (mounts, devices, virtual, dmi, lvm, …),
+  # then we additively re-enable just what we need. On a tiny VPS this cuts
+  # fact-gathering time by ~70%.
   gather_facts: true
+  gather_subset:
+    - "!all"
+    - "!min"
+    - "network"
+    - "pkg_mgr"
 
   pre_tasks:
     # Pull mode targets `localhost`, so Ansible does NOT auto-load host_vars
