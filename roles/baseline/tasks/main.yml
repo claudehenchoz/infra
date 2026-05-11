@@ -24,6 +24,53 @@
   when: host_extra_packages | length > 0
 
 # ──────────────────────────────────────────────────────────────────
+#  Auto-upgrade all packages
+# ──────────────────────────────────────────────────────────────────
+# `package:` only installs/removes — there's no cross-distro "upgrade
+# all" verb. So we branch per pkg_mgr. No reboots: kernel/glibc land
+# on disk but only take effect on your next manual reboot.
+
+- name: Upgrade all packages (apt)
+  apt:
+    upgrade: dist
+    update_cache: true
+  when:
+    - baseline_auto_upgrade | bool
+    - ansible_facts['pkg_mgr'] == "apt"
+
+- name: Upgrade all packages (dnf)
+  dnf:
+    name: "*"
+    state: latest
+  when:
+    - baseline_auto_upgrade | bool
+    - ansible_facts['pkg_mgr'] == "dnf"
+
+- name: Upgrade all packages (pacman)
+  community.general.pacman:
+    upgrade: true
+    update_cache: true
+  when:
+    - baseline_auto_upgrade | bool
+    - ansible_facts['pkg_mgr'] == "pacman"
+
+- name: Upgrade all packages (apk)
+  community.general.apk:
+    upgrade: true
+    update_cache: true
+  when:
+    - baseline_auto_upgrade | bool
+    - ansible_facts['pkg_mgr'] == "apk"
+
+- name: Upgrade all packages (zypper)
+  community.general.zypper:
+    name: "*"
+    state: latest
+  when:
+    - baseline_auto_upgrade | bool
+    - ansible_facts['pkg_mgr'] == "zypper"
+
+# ──────────────────────────────────────────────────────────────────
 #  User: claude
 # ──────────────────────────────────────────────────────────────────
 
