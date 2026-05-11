@@ -1,6 +1,5 @@
 [Unit]
 Description=Periodic ansible-pull
-Requires=ansible-pull.service
 
 [Timer]
 # 5 min after boot, then every 15 min. RandomizedDelay spreads load on
